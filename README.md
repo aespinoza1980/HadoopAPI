@@ -2,7 +2,8 @@
 Prerequisites:
 Install and configure Hadoop(Version used Hadoop 1.2.1). http://hadoop.apache.org/releases.html
 
-After Hadoop is succesfully installed,  go to the command line and start hadoop 
+After Hadoop is succesfully installed,  go to the command line and start hadoop.
+
 1) sudo start-all.sh
 
 Create a directory structure in hadoop exactly like this one
