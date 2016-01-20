@@ -18,13 +18,19 @@ hadoop fs -put WordCount.txt /user/hadoop/project3/datasets
 
 5) Open the program CmdLineParser.java.  Compile it and run it with any of the following  arguments
  
-Count DATASET <name> COLUMN <number>.
-TopX <integer> DATASET <name> COLUMN <number>.
-Search <value> DATASET <name> COLUMN <number>.
+Count DATASET <name> COLUMN <number>
 
-TopX  10 DATASET AccessLogs.txt COLUMN 3.
-Count DATASET AccessLogs.txt COLUMN 4.
-Search "justViewed" DATASET AccessLogs.txt COLUMN 4.
+TopX <integer> DATASET <name> COLUMN <number>
+
+Search <value> DATASET <name> COLUMN <number>
+
+
+TopX  10 DATASET AccessLogs.txt COLUMN 3
+
+Count DATASET AccessLogs.txt COLUMN 4
+
+Search "justViewed" DATASET AccessLogs.txt COLUMN 4
+
 
 6) Open  firefox and go to Bookmarks on the top.
 
