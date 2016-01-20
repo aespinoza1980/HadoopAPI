@@ -1,6 +1,6 @@
 # HadoopAPI
 Prerequisites:
-Install and configure Hadoop(Version used Hadoop 1.2.1).
+Install and configure Hadoop(Version used Hadoop 1.2.1). http://hadoop.apache.org/releases.html
 
 After Hadoop is succesfully installed,  go to the command line and start hadoop 
 1) sudo start-all.sh
@@ -26,8 +26,9 @@ Count DATASET AccessLogs.txt COLUMN 4
 Search "justViewed" DATASET AccessLogs.txt COLUMN 4
 
 6) Open  firefox and go to Bookmarks on the top.
+
 7) Click on Hadoop NameNode-> Browse the filesystem->user->hadoop->project3
-   The folder datasets contains all the datasets uploaded. The  folder output contains all the outputs as the program is executed everytime.
+   The folder datasets contains all the datasets uploaded. The  folder output contains all the outputs as the program is      executed everytime.
 
 
 
