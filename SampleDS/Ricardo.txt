@@ -1,0 +1,454 @@
+University of California
+IBM Almaden Research Center
+Santa Barbara, CA, USA
+San Jose, CA, USA
+sudipto@cs.ucsb.edu {syannis, kbeyer, rgemull, phaas, jmcphers}@us.ibm.com
+ABSTRACT
+Many modern enterprises are collecting data at the most detailed
+level possible, creating data repositories ranging from terabytes to
+petabytes in size. The ability to apply sophisticated statistical anal-
+ysis methods to this data is becoming essential for marketplace
+competitiveness. This need to perform deep analysis over huge
+data repositories poses a significant challenge to existing statistical
+software and data management systems. On the one hand, statisti-
+cal software provides rich functionality for data analysis and mod-
+eling, but can handle only limited amounts of data; e.g., popular
+packages like R and SPSS operate entirely in main memory. On the
+other hand, data management systems—such as MapReduce-based
+systems—can scale to petabytes of data, but provide insufficient
+analytical functionality. We report our experiences in building Ri-
+cardo, a scalable platform for deep analytics. Ricardo is part of the
+eXtreme Analytics Platform (XAP) project at the IBM Almaden
+Research Center, and rests on a decomposition of data-analysis al-
+gorithms into parts executed by the R statistical analysis system and
+parts handled by the Hadoop data management system. This de-
+composition attempts to minimize the transfer of data across system
+boundaries. Ricardo contrasts with previous approaches, which try
+to get along with only one type of system, and allows analysts to
+work on huge datasets from within a popular, well supported, and
+powerful analysis environment. Because our approach avoids the
+need to re-implement either statistical or data-management func-
+tionality, it can be used to solve complex problems right now.
+Categories and Subject Descriptors
+H.4 [
+Information Systems Applications
+]: Miscellaneous
+General Terms
+Algorithms, Design
+
+The author conducted parts of this work at the IBM Almaden Re-
+search Center.
+Permission to make digital or hard copies of all or part of this work for
+personal or classroom use is granted without fee provided that copies are
+not made or distributed for profit or commercial advantage and that copies
+bear this notice and the full citation on the first page. To copy otherwise, to
+republish, to post on servers or to redistribute to lists, requires prior specific
+permission and/or a fee.
+SIGMOD’10,
+June 6–11, 2010, Indianapolis, Indiana, USA.
+Copyright 2010 ACM 978-1-4503-0032-2/10/06 ...$10.00.
+1. INTRODUCTION
+Many of today’s enterprises collect data at the most detailed level
+possible, thereby creating data repositories ranging from terabytes
+to petabytes in size. The knowledge buried in these enormous
+datasets is invaluable for understanding and boosting business per-
+formance. The ability to apply sophisticated statistical analysis
+methods to this data can provide a significant competitive edge in
+the marketplace. For example, internet companies such as Amazon
+or Netflix provide personalized recommendations of products to
+their customers, incorporating information about individual prefer-
+ences. These recommendations increase customer satisfaction and
+thus play an important role in building, maintaining, and expanding
+a loyal customer base. Similarly, applications like internet search
+and ranking, fraud detection, risk assessment, microtargeting, and
+ad placement gain significantly from fine-grained analytics at the
+level of individual entities. This paper is about the development of
+industrial-strength systems that support advanced statistical analy-
+sis over huge amounts of data.
+The workflow for a data analyst comprises multiple activities.
+Typically, the analyst first explores the data of interest, usually via
+visualization, sampling, and aggregation of the data into summary
+statistics. Based on this exploratory analysis, a model is built. The
+output of the model is itself explored—often through visualization
+and also through more formal validation procedures—to determine
+model adequacy. Multiple iterations of model-building and evalua-
+tion may be needed before the analyst is satisfied. The final model
+is then used to improve business practices or support decision mak-
+ing. Feedback from model users can lead to further iterations of the
+model-development cycle.
+During this process, the data analyst’s indispensable toolkit is a
+statistical software package such as R, SPSS, SAS, or Matlab. Each
+of these packages provides a comprehensive environment for sta-
+tistical computation, including a concise statistical language, well
+tested libraries of statistical algorithms for data exploration and
+modeling, and visualization facilities. We focus on the highly pop-
+ular R statistical analysis program. The Comprehensive R Archive
+Network (CRAN) contains a library of roughly 2000 add-in pack-
+ages developed by leading experts and covering areas such as lin-
+ear and generalized linear models, nonlinear regression models,
+time series analysis, resampling methods, classical parametric and
+nonparametric tests, classification, clustering, data smoothing, and
+many more [13]. We refer to the application of these sophisticated
+statistical methods as
+deep analytics
+.
+Most statistical software packages, including R, are designed to
+target the moderately-sized datasets commonly found in other areas
+of statistical practice (e.g., opinion polls). These systems operate
+on a single server and entirely in main memory; they simply fail
+when the data becomes too large. Unfortunately, this means that
+987
+data analysts are unable to work with these packages on massive
+datasets. Practitioners try to avoid this shortcoming either by ex-
+ploiting vertical scalability—that is, using the most powerful ma-
+chine available—or by working on only subsets or samples of the
+data. Both approaches have severe limitations: vertical scalabil-
+ity is inherently limited and expensive, and sampling methods may
+lose important features of individuals and of the tail of the data
+distribution [9].
+In parallel to the development of statistical software packages,
+the database community has developed a variety of large-scale data
+management systems (DMSs) that can handle huge amounts of
+data. Examples include traditional enterprise data warehouses and
+newer systems based on MapReduce [11], such as Hadoop. The
+data is queried using high-level declarative languages such as SQL,
+Jaql, Pig, or Hive [14, 19, 23]. These systems leverage decades of
+research and development in distributed data management, and ex-
+cel in massively parallel processing, scalability, and fault tolerance.
+In terms of analytics, however, such systems have been limited pri-
+marily to
+aggregation processing
+, i.e., computation of simple ag-
+gregates such as SUM, COUNT, and AVERAGE, after using fil-
+tering, joining, and grouping operations to prepare the data for the
+aggregation step. For example, traditional reporting applications
+arrange high-level aggregates in cross tabs according to a set of hi-
+erarchies and dimensions. Although most DMSs provide hooks for
+user-defined functions and procedures, they do not deliver the rich
+analytic functionality found in statistical packages.
+To summarize, statistical software is geared towards deep ana-
+lytics, but does not scale to large datasets, whereas DMSs scale
+to large datasets, but have limited analytical functionality. Enter-
+prises, which increasingly need analytics that are both deep and
+scalable, have recently spurred a great deal of research on this prob-
+lem; see Section 6. Indeed, the work in this paper was strongly mo-
+tivated by an ongoing research collaboration with Visa to explore
+approaches to integrating the functionality of R and Hadoop [10].
+As another example, Cohen at al. [9] describe how the Fox Audi-
+ence Network is using statistical functionality built inside a large-
+scale DMS. As discussed in Section 6, virtually all prior work at-
+tempts to get along with only one type of system, either adding
+large-scale data management capability to statistical packages or
+adding statistical functionality to DMSs. This approach leads to so-
+lutions that are often cumbersome, unfriendly to analysts, or waste-
+ful in that a great deal of well established technology is needlessly
+re-invented or re-implemented.
+In this paper, we report our experience in building Ricardo, a
+scalable platform for deep analytics. Ricardo—which is part of the
+eXtreme Analytics Platform (XAP) project at the IBM Almaden
+Research Center—is named after David Ricardo, a famous econo-
+mist of the early 19th century who studied conditions under which
+mutual trade is advantageous. Ricardo facilitates “trading” between
+R and Hadoop, with R sending aggregation-processing queries to
+Hadoop (written in the high-level Jaql query language), and Hadoop
+sending aggregated data to R for advanced statistical processing or
+visualization—each trading partner performs the tasks that it does
+best. In contrast to previous approaches, Ricardo has the following
+advantages:
+
+Familiar working environment.
+Analysts want to work within
+a statistical environment, and Ricardo lets them continue to
+do so.
+
+Data attraction.
+Ricardo uses Hadoop’s flexible data store
+together with the Jaql query language. This combination al-
+lows analysts to work directly on any dataset in any format;
+this property of “attracting” data of any type has been iden-
+tified as a key requirement for competitive enterprise analyt-
+ics [9].
+
+Integration of data processing into the analytical workflow.
+Analysts traditionally handle large data by preprocessing and
+reducing it—using either a DMS or shell scripts—and then
+manually loading the result into a statistical package, e.g., as
+delimited text files. By using an integrated approach to data
+processing, Ricardo frees data analysts from this tedious and
+error-prone process, and allows them to leverage all available
+data.
+
+Reliability and community support.
+Ricardo is built from
+widely adopted open-source projects from both the data man-
+agement community and the statistical community. It lever-
+ages the efforts of both communities and has a reliable, well
+supported, and state-of-the-art code base.
+
+Improved user code.
+Ricardo facilitates more concise, more
+readable, and more maintainable code than is possible with
+previous approaches.
+
+Deep analytics.
+By exploiting R’s functionality, Ricardo can
+handle many kinds of advanced statistical analyses, includ-
+ing principal and independent component analysis, k-means
+clustering, and SVM classification, as well as the fitting and
+application of generalized-linear, latent-factor, Bayesian, time-
+series, and many other kinds of statistical models.
+No re-inventing of wheels.
+By combining existing statistical
+and DMS technology, each of which represents decades of
+research and development, we can immediately start to solve
+many deep analytical problems encountered in practice.
+Ricardo is inspired by the work in [8], which shows that many
+deep analytical problems can be decomposed into a “small-data
+part” and a “large-data part.” In Ricardo, the small-data part is ex-
+ecuted in R and the large-data part is executed in the Hadoop/Jaql
+DMS. A key requirement for the success of this combined approach
+is that the amount of data that must be communicated between both
+systems be sufficiently small. Fortunately, this requirement holds
+for almost all of the deep analytics mentioned above.
+In the following sections, we show how Ricardo can facilitate
+some key tasks in an analyst’s typical workflow: data exploration,
+model building, and model evaluation, all over a very large dataset.
+For illustrative purposes, we use the dataset provided for the Net-
+flix movie-recommendation competition [16]. Although the com-
+petition itself was based on a subset of just 100M movie ratings,
+our experiments on a Hadoop cluster in the Amazon Elastic Com-
+pute Cloud (EC2) indicate that Ricardo can scale R’s functionality
+to handle the billions of ratings found in practice—over a terabyte
+of data in our case.
+We emphasize that an analyst who uses Ricardo need not neces-
+sarily be an expert in Jaql nor understand exactly how to decompose
+all the deep analytics appropriately. Ricardo can potentially deliver
+much of its deep-analytics functionality in the form of R packages
+and functions that hide most of the messy implementation details.
+For example, we describe in the sequel how Ricardo can be used
+to efficiently fit a latent-factor model of movie preferences over
+a massive dataset stored in a Hadoop cluster, as well as how Ri-
+cardo can be used for large-scale versions of principal component
+analysis (PCA) and generalized linear models (GLMs). This func-
+tionality can potentially be delivered to the analyst via high-level R
+Figure 1: Average rating of a movie depending on its age
+analysis, then the analyst will have to implement the lower-level
+functionality. The hope is that, over time, users will develop a large
+library of Ricardo packages in the same way that the CRAN repos-
+itory has been developed for in-memory analytical packages. The
+XAP project team is trying to kick off this effort by providing pack-
+ages for the most common types of large-scale analyses.
+The remainder of this paper is structured as follows. In Section 2,
+we drill down into key aspects of a typical analytics workflow, us-
+ing movie recommendation data as a running example. Section 3
+briefly describes the systems of interest: the R package for statis-
+tical computing, the Hadoop DMS, and the Jaql query language.
+In Section 4, we describe Ricardo and illustrate its use on several
+analysis tasks. Section 5 describes our experimental study on the
+Netflix data. We discuss prior work in Section 6 and give our con-
+clusions in Section 7.
+2. MOTIVATING EXAMPLES
+We motivate Ricardo in the context of three examples that cover
+key aspects of the analyst’s workflow. The examples are centered
+around the Netflix competition [5]. This competition was estab-
+lished in 2006 in order to improve the recommender system that
+Netflix uses to suggest movies to its ten million customers. Since
+recommendations play an important role in establishing, maintain-
+ing and expanding a loyal customer base, such systems have be-
+come the backbone of many of the major firms on the web such
+as Amazon, eBay, and Apple’s iTunes [15, 25]. Unlike search en-
+gines, which help find information that we know we are interested
+in, recommender systems help discover people, places, and things
+previously unknown to us. We classify the examples by the degree
+of complexity in the trading between R and Hadoop.
+2.1 Simple Trading
+Our first two examples concern the exploration and evaluation
+phases of the analyst’s workflow. During the exploration phase, an
+analyst tries to gain preliminary insights about the dataset of inter-
+est. For example, Figure 1 depicts how movies are perceived with
+respect to their age. We can see that, on average, older movies are
+perceived more positively than newer movies. To produce this sim-
+ple data visualization, the analyst first performs a linear regression
+and then calls upon a plotting facility to display the raw data and
+fitted model. The analyst might also want to formally verify that
+the fitted trend is statistically significant by looking at summary
+test statistics such as the
+t
+-statistic for the slope. Statistical soft-
+ware such as R offers a convenient and powerful environment for
+performing this type of exploration. However, such software can-
+not scale to the size of the datasets found in practice. Although,
+for the competition, Netflix published only a small subset of its rat-
+ings (100M), the actual number of (explicit and implicit) ratings
+encountered in practice is orders of magnitude larger. Ricardo al-
+lows such data to be efficiently preprocessed, aggregated, and re-
+duced by Hadoop, and then passed to R for regression analysis and
+visualization.
+During the evaluation phase the analyst wants to understand and
+quantify the quality of a trained model. In our second example, we
+assume that the analyst has built a model—such as a latent-factor
+recommendation model as described in the sequel—and wants to
+identify the top-k outliers, i.e., to identify data items on which the
+model has performed most poorly. Such an analysis, which must be
+performed over all of the data, might lead to the inclusion of addi-
+tional explanatory variables (such as movie age) into the model, to
+improve the model’s accuracy. Ricardo enables such outlier analy-
+sis by allowing the application of complex R-based statistical mod-
+els over massive data. It does so by leveraging the parallelism of
+the underlying Hadoop DMS.
+The foregoing examples illustrate “simple trading” scenarios be-
+tween R and Hadoop. In the first case, data is aggregated and pro-
+cessed before it is passed to R for advanced analysis; in the second
+case, an R statistical model is passed to Hadoop for efficient paral-
+lel evaluation over the massive dataset. As discussed below, other
+analyses require more intricate exchanges, which Ricardo also sup-
+ports.
+2.2 Complex Trading
+Our third example illustrates the use of Ricardo during the mod-
+eling phase of an analyst’s workflow. One approach to model build-
+ing over a huge dataset might use a simple-trading scheme in which
+Hadoop reduces the data by aggregation or sampling, and then
+passes the data to R for the model-building step. The downside
+of this approach is that detailed information, which must be ex-
+ploited to gain a competitive edge, is lost. As shown below, Ri-
+cardo permits a novel “complex trading” approach that avoids such
+information loss.
+The complex-trading approach, like simple trading, requires a
+decomposition of the modeling into a small-data part, which R han-
+dles, and a large-data part, which Hadoop handles—as mentioned
+in Section 1, many deep analytical problems are amenable to such a
+decomposition. Unlike simple trading, however, a complex-trading
+algorithm involves multiple iterations over the data set, with trading
+back and forth between R and Hadoop occurring at each iteration.
+As an instructive example, we consider the problem of building a
+latent-factor model of movie preferences over massive Netflix-like
+data. This modeling task is central to the winning Netflix com-
+petition technique [18], and enables accurate personalized recom-
+mendations for each individual user and movie, rather than global
+recommendations based on coarse customer and movie segments.
+Because such a model must discern each customer’s preferences
+from a relatively small amount of information on that customer, it
+is clear that every piece of available data must be taken into ac-
+count. As with many other deep analytics problems, the sampling
+and aggregation used in a simple-trading approach is unacceptable
+in this setting.
+To understand the idea behind latent-factor models, consider the
+data depicted in Figure 2, which shows the ratings of three cus-
+tomers and three movies in matrix form. The ratings are printed in
+boldface and vary between 1 (hated the movie) and 5 (loved it). For
+example, Michael gave a rating of 5 to the movie “About Schmidt”
+About Schmidt Lost in Translation Sideways
+Figure 2: A simple latent-factor model for predicting movie
+ratings. (Data points in boldface, latent factors and estimated
+ratings in italics.)
+and a rating of 3 to “Sideways”. In general, the ratings matrix is
+very sparse; most customers have rated only a small set of movies.
+The italicized number below each customer and movie name is a
+latent factor. In this example, there is just one factor per entity:
+Michael is assigned factor 2.30, the movie “About Schmidt” gets
+2.24. In this simple example, the estimated rating for a particu-
+lar customer and movie is given by the product of the correspond-
+ing customer and movie factors.
+For example, Michael’s rating
+of “About Schmidt” is approximated by
+approximation is printed in italic face below the respective rating.
+The main purpose of the latent factors, however, is to
+predict
+rat-
+ings, via the same mechanism. Our estimate for Michael’s rating of
+“Lost in Translation” is
+. Thus, our recommender
+system would suggest this movie to Michael but, in contrast, would
+avoid suggesting “Sideways” to Bob, because the predicted rating
+is
+Latent factors characterize the interaction between movies and
+customers and sometimes have obvious interpretations. For exam-
+ple, a movie factor might indicate the degree to which a movie is
+a “comedy” and a corresponding customer factor might indicate
+the degree to which the customer likes comedies. Usually, how-
+ever, such an interpretation cannot be given, and the latent fac-
+tors capture correlations between customers and movies without
+invoking domain-specific knowledge. Under the assumption that
+the preferences of individual customers remain constant, the more
+available feedback, the better the modeling power of a latent-factor
+model [15, 17]. Netflix and other companies typically collect bil-
+lions of ratings; taking implicit feedback such as navigation and
+purchase history into account, the amount of data subject to recom-
+mendation analysis is enormous.
+In Section 4 below, we discuss in detail how Ricardo handles
+the foregoing exploration, evaluation, and model-building example
+tasks that we have defined, and we indicate how Ricardo can be
+applied to other deep analytics tasks over massive data.
+3. PRELIMINARIES
+In this section, we briefly describe the main components of Ri-
+cardo: the R statistical software package, the Hadoop large-scale
+DMS, and the Jaql query language.
+1
+In an actual recommender system, there is a vector of latent factors
+associated with each customer and movie, and the estimated rating
+is given by the dot product of the corresponding vectors.
+3.1 The R Project for Statistical Computing
+R was originally developed by Ross Ihaka and Robert Gentle-
+man, who were at that time working at the statistics department
+of the University of Auckland, New Zealand. R provides both an
+open-source language and an interactive environment for statisti-
+cal computation and graphics. The core of R is still maintained
+by a relatively small set of individuals, but R’s enormous popu-
+larity derives from the thousands of sophisticated add-on packages
+developed by hundreds of statistical experts and available through
+CRAN. Large enterprises such as AT&T and Google have been
+supporting R, and companies such as REvolution Computing sell
+versions of R for commercial environments.
+As a simple example of R’s extensive functionality, consider the
+following small program that performs the regression analysis and
+data visualization shown previously in Figure 1. It takes as input a
+“data frame”
+df
+that contains the mean ratings of the movies in the
+Netflix dataset by year of publication, performs a linear regression,
+and plots the result:
+fit <- lm(df$mean ~ df$year)
+plot(df$year, df$mean)
+abline(fit)
+(A data frame is R’s equivalent of a relational table.) Older movies
+appear to be rated more highly than recent ones; a call to the R
+function
+summary(fit)
+would validate that this linear trend is in-
+deed statistically significant by computing assorted test statistics.
+3.2 Large-Scale Data Management Systems
+Historically, enterprise data warehouses have been the dominant
+type of large-scale DMS, scaling to hundreds of terabytes of data.
+These systems are usually interfaced by SQL, a declarative lan-
+guage for processing structured data. Such systems provide exten-
+sive support for aggregation processing as defined in Section 1. Im-
+plementations of enterprise data warehouses benefit from decades
+of experience in parallel SQL processing and, as indicated by the
+recent surge of new vendors of “analytical databases,” continue to
+provide innovative data management solutions.
+Besides being very expensive, these systems suffer from the dis-
+advantage of being primarily designed for clean and structured data,
+which comprises an increasingly tiny fraction of the world’s data.
+Analysts want to be able to work with dirty, semi-structured or
+even unstructured data without going through the laborious cleans-
+ing process needed for data warehousing [9]. For these situations,
+MapReduce and its open-source implementation Apache Hadoop
+have become popular and widespread solutions.
+Hadoop comprises a distributed file system called HDFS bundled
+with an implementation of Google’s MapReduce paradigm [11].
+Hadoop operates directly on raw data files; HDFS takes care of
+the distribution and replication of the files across the nodes in the
+Hadoop cluster. Data processing is performed according to the
+MapReduce paradigm. The input files are split into smaller chunks,
+each of which is processed in parallel using a user-defined
+map
+function. The results of the map phase are redistributed (accord-
+ing to a user-defined criterion) and then fed into a
+reduce
+function,
+which combines the map outputs into a global result. Hadoop has
+been successfully used on petabyte-scale datasets and thousands of
+nodes; it provides superior scalability, elasticity and fault-tolerance
+properties on large clusters of commodity machines. Hadoop is an
+appealing alternative platform for massive data storage, manipula-
+tion and parallel processing.

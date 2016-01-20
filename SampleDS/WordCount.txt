@@ -1,0 +1,312 @@
+stance-Based Outlier Detection At Scale By Alexis Espinoza
+
+The motivation for discovering outliers in large datasets is important in many applications
+
+specially when we want to understand the distributions inherent in large datasets while also considering
+
+those data points that deviate too much from the norm across the possible distributions that may affect
+
+the way we understand our data. But sometimes outlier detection is not only important but also
+
+critical, specially depending on the application or better yet, when the nature of the study of the data
+
+in the application implies failure if outliers are not caught fast enough or even worse, in real time. It
+
+is computationally difficult to detect outliers in a large TB sized dataset because not only its
+
+cardinality but also its density are important high cost roles to take into account when detecting
+
+outliers. Efficiency then becomes an issue when considering the traditional centralized approach that
+
+exists for detecting distance-based outliers that would perform badly in terms of response in the
+
+nowadays common large datasets.
+
+This paper investigated and considered the approach of efficiently dealing with distance-based
+
+outlier detection in large datasets by implementing a highly distributed MapReduce-Based outlier
+
+detection technique framework solution called DOD. Besides being efficient in terms of response, the
+
+whole idea behind the DOD approach is that it should be consistent when detecting outliers when
+
+considering the nature of the many possible characteristics in the datasets.
+
+Their claim is quite novel because intuitively one may think that several mappers are needed for
+
+collecting data-points in a dataset and detect outliers across partitions at the reduce phase with the
+
+many IO's involved in every iteration. Instead, the need to have balanced work-load partitions at the
+
+mapper side combined with an approach to select the best strategy solution so that accurate outlier
+
+detection is possible in each partition at the reduce phase, are actually the key characteristics that make
+
+the DOD framework much more efficient than any other distance-based outlier detection algorithm we
+
+know of.
+
+In order to implement efficiency and scalability, the DOD framework considers two key
+
+components which are namely 1) a load balancing partitioning strategy where the dataset is evenly and
+
+distributively partitioned with each partition being self-sufficient, eliminating the need for multiple
+
+mappers with data points in each partition classified in a way that finding outliers endemic to a
+
+particular domain is minimized at the mapper side and 2) a multi-tactic detection strategy on the
+
+reducers' side where adaptively the best algorithm is selected based on the density of the data at each
+
+partition. These two key components make the DOD framework capable of detecting outliers in one
+
+single pass regardless of how unevenly distributed a large dataset may be.
+
+Overall speaking, this paper explains a novel solution to finding outliers in large datasets in a
+
+more efficient and scalable way than any other Map Reduce algorithm or framework in the market. It
+
+is quite a great idea that we can find data-points that deviate too much from the norm regardless of how
+
+large a dataset is or its particular density if we look at it from a semi-parametric clustered point of view,
+
+all of this in one single pass with a more or less optimal response which is critical in many applications.
+
+Critique to Fast Parallel Association Rule Mining Without Candidacy Generation By Alexis
+
+Espinoza
+
+Targeted Problems:
+
+Association mining algorithms have unlimited applicability in problems that deal with finding
+
+confident rules from k-frequent item sets from large datasets, with the most popular of them being the
+
+apriori algorithm. Some of these association mining algorithms have been known to have poor results
+
+on high dimensional partitioned datasets such as high false positives of frequent items and others are
+
+just simply too complex to implement. Because databases grow exponentially, the key thing developers
+
+look for when solving any data-mining problems is how to improve or maintain performance while
+
+obtaining the same results or better results. Association mining algorithms, whether sequential or
+
+parallel based on the apriori principles are known to make multiple scans and IO's to find confident
+
+rules from the k-frequent item sets. Reducing IO's and multiple scanning for these frequent item-sets
+
+seem only possible when parallelization of the association rules is involved which is not an easy task
+
+to implement.
+
+Novelty Contribution:
+
+In this paper, the authors propose a new parallel association rules mining algorithm called
+
+MLFPT based on the FP-Growth algorithm approach which creates multiple local parallel compact
+
+trees that improve the item-set generation by only managing to implement two full scans of the dataset
+
+with interlinked local counters in every processor that avoid pruning false negatives and mutual
+
+exclusion while optimizing load balancing in order to distribute the work fairly among processors for
+
+the mining process problem at hand.
+
+Approach:
+
+The MLFPT approach consists of two key steps:
+
+1) Construction of multiple local parallel trees with each tree containing all frequent patterns for each
+
+of the processors involved. This requires two phases:
+
+a) After identifying the 1-frequent item-set in the first scan, the dataset is equally divided and
+
+distributed among the processors with each processor keeping counts of local occurrences and
+
+summing up in parallel their respective local support of the occurrences into a global count. Finally, in
+
+a sequential manner, only the frequent item-sets with their global support are sorted by frequency and
+
+kept in a header table along with pointers to the first occurrence of every item in each frequent
+
+pattern tree.
+
+b) In the second part of phase one , local FP-Trees are constructed by each processor performing a
+
+second I/O scan and reading the same transactions as in phase 1 part 1, with the frequent items being
+
+collected and sorted in descending order by frequency. Being in descending order makes every item
+
+increment the support for the root node in the tree if it exists or create a new child node if it does not
+
+exist in the tree with support of 1 while keeping a link between the item-node in the tree and its entry
+
+in the header table. If option two happens, then the current item becomes the newly root node and the
+
+whole process is repeated until all items in descending order are searched for.
+
+2) Mining Parallel Frequent items using MLPT where each processor sharing all their frequent local
+
+FP-Trees generatesa) Conditional pattern bases which are lists of items that occur before a certain item in the frequent
+
+pattern tree and its corresponding branches taking under consideration the minimum support for all
+
+items in the lists.
+
+b) Conditional FP-Trees which are all the conditional pattern bases merged of the same items which
+
+contain frequent item sets and the support for every item.
+
+During the experimental results it was determined that the most costly part was building the
+
+MLFTP trees which was solved by the addition of more processors and the evenly partition of
+
+independent work among the processors with each processor building a MLFTP subtree and with none
+
+of the processors waiting for one another for job completion. It was proven from the experimental
+
+results that the MLFTP algorithm's speed increased as the size of the dataset increased.
+
+Following Work:
+
+With enough resources operating in parallel and with load balanced work among those
+
+resources, the MLFTP algorithm can prove effective when mining frequent item sets in large high
+
+dimensional datasets. The fact that, MLFTP only performs 2 I/O scans of the data regardless of the
+
+number of processors while dealing with mutual-exclusion locking, distances itself from those
+
+commonly aprori-based algorithms for mining frequent item-sets in terms of performance. It is to be
+
+seen how this algorithm would perform with totally independent machines in a cluster with different
+
+dual processors. But hopefully the same ideas would apply just the same.
+
+Critique to Parallel Mining of Association Rule by Alexis Espinoza
+
+Targeted problems
+
+Once again, the need for mining algorithms achieving high performance in incrementally large
+
+datasets has become one of the key motivations for embracing parallelization in hopes that these
+
+mining technologies can spawn a new generation of applications that can help in better decision-
+
+support, for those companies or institutions whose time is essential in decision making. In the previous
+
+paper, a parallel approach for association mining rules proved effective on cluster with shared
+
+resources when compared to traditional apriori-based algorithms with the same characteristics. The
+
+novel algorithm was yet to be tested on shared nothing architecture with not much being said on the
+
+trade-offs that could be involved in communication, computation, memory usage, synchronization and
+
+in general the problem of data-mining in parallel.
+
+Novelty and contribution
+
+In this paper, the authors study three parallel algorithms based upon the serial Apriori algorithm
+
+for mining association rules on shared nothing architectures and attempt to determine the best among
+
+the three. The three algorithms are:
+
+1) The count distribution algorithm which focuses on minimizing communication
+
+2) The data distribution algorithm that attempts to use memory more effectively while requiring that
+
+nodes broadcast their data to all the other nodes in the cluster.
+
+3)The Candidate distribution algorithm which attempts to reduce synchronization between processors
+
+and segments the database upon the patterns the different partitions support while incorporating load
+
+balancing.
+
+The two subproblems targeted included finding all frequent itemsets and generating rules from those
+
+frequent itemsets.
+
+Approach
+
+The count distribution algorithm implements redundant computation to avoid communication
+
+by replicating the candidates sets in each processors' memory making each processor work with local
+
+data and communicating the counts from the frequent items. This makes processors operate
+
+independently while reading and working with the data. The drawback of this algorithm is that since
+
+this algorithm does not exploit aggregate memory, it will always count the same number of candidates
+
+per processor's memory regardless if more processors are added.
+
+In the Data distribution algorithm more candidates can be counted as more processors are added
+
+with each processor working with the entire dataset but only a portion of the candidate set making
+
+necessary the counting of mutually exclusive candidates. The drawback is the cost of communication
+
+when the broadcast of each processor's local occur in every pass.
+
+These two drawbacks are dealt with in the candidate distribution algorithm where each
+
+processor works independently on its dataset while maximizing aggregate memory and lowering down
+
+on communication costs by including some awareness in the partitioning domain assigned to each
+
+processor so that the counting of candidates occur independent of other processors in the cluster
+
+without broadcasting the entire dataset.Experimental Results
+
+In the experimental results the candidate distribution algorithm had the best trade-offs among
+
+the three when tested on a shared nothing machine referred to as SP2, showing good processing speed ,
+
+reduced overhead when aggregating more processors and linear scaleup. However, on problems where
+
+parallelism does not come as natural and where there is a high cost of broadcasting local data from
+
+processor to processor, the candidate distribution algorithm did not perform better than the much
+
+simpler Count algorithm.
+
+Following work
+
+In association mining rules, different considerations and approaches are needed when dealing
+
+with performance in the problems at hand. There seems to be no best algorithm in association mining,
+
+specially with changing hardware architectures overtime which inspire the need for working on the
+
+particular domain. However, three things should dominate the spectrum when choosing among what
+
+approach to use when dealing with performance of association mining rules in any future work. These
+
+are:
+
+1) In parallel shared memory and shared storage architectures, having an algorithm that makes less IO
+
+scans, proves effective when mining frequent item sets in large high dimensional datasets.
+
+2) In parallel shared nothing architectures where we know communication costs do not penalize
+
+performance, having an algorithm with domain awareness that can make each processor deal with its
+
+partitioned dataset locally, maximizes the aggregation of resources and improves the performance of
+
+the association mining problem.
+
+3) In problems where we know that parallelism cannot play a big role in performance given the style of
+
+architecture that we may have, then a much simpler algorithm that implements redundant computation
+
+with processors working on local data while minimizing communication costs will suit the
+
+performance's needs.
+
