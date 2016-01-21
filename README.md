@@ -7,8 +7,9 @@ After Hadoop is succesfully installed,  go to the command line and start hadoop.
 1) sudo start-all.sh
 
 
-Create a directory structure in hadoop exactly like this one
-2) hadoop fs -mkdir /user/hadoop/project3/datasets
+2) Create a directory structure in hadoop exactly like this one:
+
+   hadoop fs -mkdir /user/hadoop/project3/datasets
    hadoop fs -mkdir /user/hadoop/project3/output
 
 3) Upload a dataset(Unstructured dataset(Ricardo.txt, WordCount.txt) Or structured Multidimensional dataset(AccessLogs.txt), all of them  provided in the project in the SampleDS folder. You can  always upload your own)
